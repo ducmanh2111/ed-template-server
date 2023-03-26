@@ -1,23 +1,48 @@
-version: "2.2"
+version: "3.7"
 
 services:
-  mysql:
-    image: mysql:8.0
+  nginx:
+    build:
+      context: docker/nginx
+      dockerfile: Dockerfile
+      args:
+        - HOST=localhost
+    depends_on:
+      - app
     ports:
-      - "3306:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=
-      - MYSQL_ALLOW_EMPTY_PASSWORD=true
-      - MYSQL_USER=petclinic
-      - MYSQL_PASSWORD=petclinic
-      - MYSQL_DATABASE=petclinic
-    volumes:
-      - "./conf.d:/etc/mysql/conf.d:ro"
-  postgres:
-    image: postgres:15.2
-    ports:
+      - "80:80"
       - "5432:5432"
+
+  app:
+    depends_on:
+      - db
+      - opensearch
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    volumes:
+      - .:/app
+    stdin_open: true
+    tty: true
+
+  opensearch:
+    image: "opensearchproject/opensearch:latest"
+    depends_on:
+      - db
+    ports:
+      - "9200:9200"
+      - "9600:9600"
     environment:
-      - POSTGRES_PASSWORD=petclinic
-      - POSTGRES_USER=petclinic
-      - POSTGRES_DB=petclinic
+      - discovery.type=single-node
+
+  db:
+    image: postgres:15.2
+    env_file:
+      - .env
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
